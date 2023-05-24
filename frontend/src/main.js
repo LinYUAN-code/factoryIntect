@@ -1,5 +1,14 @@
-import { createApp } from 'vue'
-import './style.css'
-import App from './App.vue'
+import { createApp } from "vue";
+import router from "./router";
+import App from "./App.vue";
+import "./global.scss";
 
-createApp(App).mount('#app')
+Array.prototype.repeat = function (num) {
+  const ans = [];
+  for (let i = 0; i < num; i++) {
+    ans.push(...this);
+  }
+  return ans;
+};
+
+createApp(App).use(router).mount("#app");
