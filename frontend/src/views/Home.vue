@@ -122,6 +122,7 @@ const handleSendMsg = () => {
     <div class="chat-container">
       <div class="msg-header-container">
         <div class="info-container">
+          {{ chatMap[currentChatName].userName }}
           <Avatar :name="chatMap[currentChatName].userName"></Avatar>
           <div class="name">{{ chatMap[currentChatName].userName }}</div>
         </div>

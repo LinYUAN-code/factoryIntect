@@ -14,12 +14,14 @@ const colors = [
   "#dff9fb",
 ];
 let color = "#f6e58d";
-const name = props.name;
-if (localStorage.getItem(name)) {
-  color = localStorage.getItem(name);
-} else {
-  color = colors[Math.floor(Math.random() * 6)];
-  localStorage.setItem(name, color);
+{
+  const name = props.name;
+  if (localStorage.getItem(name)) {
+    color = localStorage.getItem(name);
+  } else {
+    color = colors[Math.floor(Math.random() * 6)];
+    localStorage.setItem(name, color);
+  }
 }
 </script>
  
