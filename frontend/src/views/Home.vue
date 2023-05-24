@@ -1,7 +1,7 @@
 <script setup>
 import Avatar from "../components/Avatar.vue";
 import { Plus } from "@element-plus/icons";
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 const myName = "刘志鹏";
 const friends = [
   {
@@ -9,23 +9,35 @@ const friends = [
     lastMsgTime: "11:45",
   },
   {
-    name: "赵云",
+    name: "赵老",
     lastMsgTime: "15:35",
   },
   {
-    name: "刘备",
+    name: "刘晶",
     lastMsgTime: "12:45",
   },
-].repeat(20);
+];
 
-const chat = {
-  userName: "王刚",
-  msgs: [
-    { msg: "今天情况如何", time: "12:33", isMine: false },
-    { msg: "今天情况如何", time: "12:33", isMine: true },
-    { msg: "今天情况如何", time: "12:33", isMine: false },
-    { msg: "今天情况如何", time: "12:33", isMine: true },
-  ].repeat(10),
+const chatMap = ref({
+  王刚: {
+    userName: "王刚",
+    msgs: [
+      { msg: "今天情况如何", time: "12:33", isMine: false },
+      { msg: "最近的一批零件检测的如何了?", time: "12:33", isMine: false },
+    ],
+  },
+  赵老: {
+    userName: "赵老",
+    msgs: [{ msg: "早上好", time: "12:33", isMine: false }],
+  },
+  刘晶: {
+    userName: "刘晶",
+    msgs: [{ msg: "一起去喝下午茶嘛？", time: "12:33", isMine: false }],
+  },
+});
+const currentChatName = ref("王刚");
+const changeUser = (name) => {
+  currentChatName.value = name;
 };
 
 const fileList = ref([]);
@@ -34,6 +46,46 @@ const handleRemove = (file, fileList) => {
 };
 const handlePreview = (file) => {
   console.log(file);
+};
+
+const fileInputRef = ref();
+const handleFileClick = () => {
+  fileInputRef.value.click();
+};
+const uploadFileList = ref([]);
+onMounted(() => {
+  fileInputRef.value.addEventListener("change", function () {
+    const files = fileInputRef.value.files;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      uploadFileList.value.push({
+        name: file.name,
+        size: file.size,
+      });
+    }
+  });
+});
+const handleRemoveFile = (index) => {
+  uploadFileList.value.splice(index, 1);
+};
+
+const result = ref("暂时没有结果，请上传文件后点击识别零件");
+const handleGenerateResult = () => {
+  result.value = "Ring: 20 Nut: 23 Screu: 45";
+};
+
+const msgInput = ref("");
+const handleSendMsg = () => {
+  const now = new Date(); // 获取当前时间
+  const hours = now.getHours().toString().padStart(2, "0"); // 获取当前小时，并格式化为两位数
+  const minutes = now.getMinutes().toString().padStart(2, "0"); // 获取当前分钟，并格式化为两位数
+  const timeString = `${hours}:${minutes}`; // 将小时和分钟拼接成 "12:23" 的形式
+  chatMap.value[currentChatName.value].msgs.push({
+    msg: msgInput.value,
+    time: timeString,
+    isMine: true,
+  });
+  msgInput.value = "";
 };
 </script>
  
@@ -56,6 +108,8 @@ const handlePreview = (file) => {
           class="info-container list-info-container"
           v-for="user in friends"
           :key="user.name"
+          :class="{ active: currentChatName === user.name }"
+          @click="changeUser(user.name)"
         >
           <Avatar :name="user.name"></Avatar>
           <div class="name">{{ user.name }}</div>
@@ -68,22 +122,24 @@ const handlePreview = (file) => {
     <div class="chat-container">
       <div class="msg-header-container">
         <div class="info-container">
-          <Avatar :name="chat.userName"></Avatar>
-          <div class="name">{{ chat.userName }}</div>
+          <Avatar :name="chatMap[currentChatName].userName"></Avatar>
+          <div class="name">{{ chatMap[currentChatName].userName }}</div>
         </div>
       </div>
       <div class="msg-show-container">
-        <div v-for="(msg, index) in chat.msgs" :key="index">
+        <div v-for="(msg, index) in chatMap[currentChatName].msgs" :key="index">
           <div class="left-msg" v-if="!msg.isMine">
             <div class="time">
               {{ msg.time }}
             </div>
             <div class="content">
               <div class="Avatar">
-                <Avatar :name="chat.userName"></Avatar>
+                <Avatar :name="chatMap[currentChatName].userName"></Avatar>
               </div>
               <div class="msg">
-                <div class="name">{{ chat.userName }}</div>
+                <div class="name">
+                  {{ chatMap[currentChatName].userName }}
+                </div>
                 <div class="msg">{{ msg.msg }}</div>
               </div>
             </div>
@@ -94,7 +150,6 @@ const handlePreview = (file) => {
             </div>
             <div class="content">
               <div class="msg">
-                <div class="name">{{ myName }}</div>
                 <div class="msg">{{ msg.msg }}</div>
               </div>
               <div class="Avatar">
@@ -109,30 +164,44 @@ const handlePreview = (file) => {
           type="textarea"
           :rows="8"
           placeholder="请输入内容"
-          v-model="textarea"
+          v-model="msgInput"
         ></el-input>
-        <el-button class="re-btn" type="primary">发送</el-button>
+        <el-button class="re-btn" type="primary" @click="handleSendMsg"
+          >发送</el-button
+        >
       </div>
     </div>
     <div class="handle-container">
       <div class="upload-container">
-        <el-upload
-          action="https://jsonplaceholder.typicode.com/posts/"
-          list-type="picture"
-          :on-preview="handlePreview"
-          :on-remove="handleRemove"
-          :file-list="fileList"
-        >
-          <el-button size="default" type="primary">点击上传</el-button>
-        </el-upload>
-        <el-dialog v-model="dialogVisible">
-          <img width="100%" :src="dialogImageUrl" alt="" />
-        </el-dialog>
+        <form>
+          <input
+            type="file"
+            name="upload"
+            id="upload"
+            style="display: none"
+            ref="fileInputRef"
+            multiple
+          />
+          <el-button size="default" type="primary" @click="handleFileClick"
+            >点击上传</el-button
+          >
+        </form>
+        <div v-for="(item, index) in uploadFileList" :key="index" class="file">
+          {{ item.name }}
+          <el-button
+            size="default"
+            type="danger"
+            @click="handleRemoveFile(index)"
+            >删除</el-button
+          >
+        </div>
       </div>
       <div class="result-container">
-        <div class="result">Ring: 20 Nut: 23 Screu: 45</div>
+        <div class="result">{{ result }}</div>
         <div class="btn-container">
-          <el-button size="default" type="primary">识别零件</el-button>
+          <el-button size="default" type="primary" @click="handleGenerateResult"
+            >识别零件</el-button
+          >
         </div>
       </div>
     </div>
@@ -140,6 +209,17 @@ const handlePreview = (file) => {
 </template>
 
 <style lang='scss' scoped>
+.active {
+  background-color: #f2f2f2;
+}
+.file {
+  margin-top: 10px;
+  padding: 5px 5px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .handle-container {
   flex: 1;
   border-left: 0.5px solid rgba(0, 0, 0, 0.5);
@@ -182,8 +262,8 @@ const handlePreview = (file) => {
     .btn-container {
       display: flex;
       justify-content: flex-end;
-      margin-top: 60px;
-      margin-right: 40px;
+      margin-top: 5%;
+      margin-right: 4%;
     }
   }
 }
@@ -244,6 +324,7 @@ const handlePreview = (file) => {
   }
   .friend-container {
     overflow: scroll;
+    flex: 1;
   }
 }
 .chat-container {
@@ -299,16 +380,6 @@ const handlePreview = (file) => {
             background-color: #e5e5e5;
             border-radius: 6px;
             position: relative;
-            &::after {
-              content: "";
-              position: absolute;
-              left: -15px;
-              top: 3px;
-              width: 0px;
-              height: 0px;
-              border: 8px solid;
-              border-color: transparent #e5e5e5 transparent transparent;
-            }
           }
         }
       }
