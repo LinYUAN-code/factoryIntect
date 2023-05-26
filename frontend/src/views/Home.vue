@@ -24,6 +24,11 @@ const chatMap = ref({
     msgs: [
       { msg: "今天情况如何", time: "12:33", isMine: false },
       { msg: "最近的一批零件检测的如何了?", time: "12:33", isMine: false },
+      {
+        msg: "https://ns-strategy.cdn.bcebos.com/ns-strategy/upload/fc_big_pic/part-00044-856.jpg",
+        isImg: true,
+      },
+      { msg: "https://www.baidu.com", isLink: true },
     ],
   },
   赵老: {
@@ -52,6 +57,10 @@ const fileInputRef = ref();
 const handleFileClick = () => {
   fileInputRef.value.click();
 };
+const imgUploadRef = ref();
+const handleImgUpload = () => {
+  imgUploadRef.value.click();
+};
 const uploadFileList = ref([]);
 onMounted(() => {
   fileInputRef.value.addEventListener("change", function () {
@@ -64,26 +73,50 @@ onMounted(() => {
       });
     }
   });
+  imgUploadRef.value.addEventListener("change", function () {
+    const file = imgUploadRef.value.files[0];
+    // 创建 FileReader 对象
+    const reader = new FileReader();
+    // 监听读取完成事件
+    reader.onload = function () {
+      // 将读取到的二进制数据转换成 blob 数据
+      const blob = new Blob([reader.result], { type: file.type });
+      // 生成 blob URL，用于展示图片
+      const blobUrl = URL.createObjectURL(blob);
+      console.log(blobUrl);
+      msgInput.value = blobUrl;
+      handleSendMsg(true);
+    };
+    // 读取文件内容，并将其转换成 ArrayBuffer 对象
+    reader.readAsArrayBuffer(file);
+  });
 });
 const handleRemoveFile = (index) => {
   uploadFileList.value.splice(index, 1);
 };
 
-const result = ref("暂时没有结果，请上传文件后点击识别零件");
+const result = ref([]);
 const handleGenerateResult = () => {
-  result.value = "Ring: 20 Nut: 23 Screu: 45";
+  result.value = [20, 23, 25];
 };
 
 const msgInput = ref("");
-const handleSendMsg = () => {
+const handleSendMsg = (isBlob = false) => {
   const now = new Date(); // 获取当前时间
   const hours = now.getHours().toString().padStart(2, "0"); // 获取当前小时，并格式化为两位数
   const minutes = now.getMinutes().toString().padStart(2, "0"); // 获取当前分钟，并格式化为两位数
   const timeString = `${hours}:${minutes}`; // 将小时和分钟拼接成 "12:23" 的形式
+  const ipv4RegExp =
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  const urlRegExp = /^(https?|ftp):\/\/(-\.)?([^\s/?.#-]+\.?)+(\/[^\s]*)?$/;
+
   chatMap.value[currentChatName.value].msgs.push({
     msg: msgInput.value,
     time: timeString,
     isMine: true,
+    isLink:
+      !!msgInput.value.match(ipv4RegExp) || !!msgInput.value.match(urlRegExp),
+    isImg: isBlob,
   });
   msgInput.value = "";
 };
@@ -122,7 +155,6 @@ const handleSendMsg = () => {
     <div class="chat-container">
       <div class="msg-header-container">
         <div class="info-container">
-          {{ chatMap[currentChatName].userName }}
           <Avatar :name="chatMap[currentChatName].userName"></Avatar>
           <div class="name">{{ chatMap[currentChatName].userName }}</div>
         </div>
@@ -141,7 +173,15 @@ const handleSendMsg = () => {
                 <div class="name">
                   {{ chatMap[currentChatName].userName }}
                 </div>
-                <div class="msg">{{ msg.msg }}</div>
+                <div class="msg">
+                  <div class="image-container" v-if="msg.isImg">
+                    <img :src="msg.msg" alt="图片加载失败" />
+                  </div>
+                  <div v-else-if="msg.isLink">
+                    <a :href="msg.msg" target="_blank">{{ msg.msg }}</a>
+                  </div>
+                  <div v-else>{{ msg.msg }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -149,9 +189,15 @@ const handleSendMsg = () => {
             <div class="time">
               {{ msg.time }}
             </div>
-            <div class="content">
+            <div class="content msg">
               <div class="msg">
-                <div class="msg">{{ msg.msg }}</div>
+                <div class="image-container" v-if="msg.isImg">
+                  <img :src="msg.msg" alt="图片加载失败" />
+                </div>
+                <div v-else-if="msg.isLink">
+                  <a :href="msg.msg" target="_blank">{{ msg.msg }}</a>
+                </div>
+                <div v-else>{{ msg.msg }}</div>
               </div>
               <div class="Avatar">
                 <Avatar :name="myName"></Avatar>
@@ -163,11 +209,27 @@ const handleSendMsg = () => {
       <div class="msg-send-container">
         <el-input
           type="textarea"
-          :rows="8"
+          :rows="7"
           placeholder="请输入内容"
           v-model="msgInput"
         ></el-input>
-        <el-button class="re-btn" type="primary" @click="handleSendMsg"
+        <form>
+          <input
+            type="file"
+            name="uploadImg"
+            id="uploadImg"
+            style="display: none"
+            ref="imgUploadRef"
+          />
+          <el-button
+            size="default"
+            style="margin-right: 90px"
+            type="primary"
+            @click="handleImgUpload"
+            >上传图片</el-button
+          >
+        </form>
+        <el-button class="re-btn" type="primary" @click="handleSendMsg(false)"
           >发送</el-button
         >
       </div>
@@ -198,7 +260,26 @@ const handleSendMsg = () => {
         </div>
       </div>
       <div class="result-container">
-        <div class="result">{{ result }}</div>
+        <div class="result" v-if="result.length">
+          <h1 class="header">识别完成</h1>
+          <div class="content-container">
+            <div class="item">
+              <div class="name">螺丝钉</div>
+              <div class="num">{{ result[0] }}</div>
+            </div>
+            <div class="item">
+              <div class="name">螺母</div>
+              <div class="num">{{ result[1] }}</div>
+            </div>
+            <div class="item">
+              <div class="name">垫片</div>
+              <div class="num">{{ result[2] }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="result-non">
+          暂时没有结果，请上传文件后点击识别零件
+        </div>
         <div class="btn-container">
           <el-button size="default" type="primary" @click="handleGenerateResult"
             >识别零件</el-button
@@ -210,6 +291,29 @@ const handleSendMsg = () => {
 </template>
 
 <style lang='scss' scoped>
+.msg {
+  padding-top: 2px;
+  padding-left: 10px;
+  .name {
+    font-size: 14px;
+    margin-left: 8px;
+  }
+  .msg {
+    margin-top: 5px;
+    padding: 10px 10px;
+    background-color: #e5e5e5;
+    border-radius: 6px;
+    position: relative;
+  }
+}
+.image-container {
+  width: 300px;
+  height: 200px;
+  img {
+    width: 100%;
+    height: 100%;
+  }
+}
 .active {
   background-color: #f2f2f2;
 }
@@ -255,15 +359,43 @@ const handleSendMsg = () => {
   }
   .result-container {
     .result {
-      margin-top: 100px;
-      margin-left: 300px;
-      font-size: 20px;
-      // font-family: "STXingkai";
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      .header {
+        margin-top: 30px;
+      }
+      .content-container {
+        display: flex;
+        margin-top: 40px;
+        .item {
+          width: 100px;
+          height: 50px;
+          font-size: 20px;
+          border: 1px solid #000;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          &:nth-child(n + 1) {
+            margin-left: 10px;
+          }
+          .name {
+          }
+          .num {
+          }
+        }
+      }
+    }
+    .result-non {
+      font-size: 25px;
+      font-weight: 500;
+      margin-top: 80px;
+      margin-left: 150px;
     }
     .btn-container {
       display: flex;
       justify-content: flex-end;
-      margin-top: 5%;
+      margin-top: 2%;
       margin-right: 4%;
     }
   }
@@ -354,6 +486,7 @@ const handleSendMsg = () => {
     border-bottom: 0.5px solid rgba(0, 0, 0, 0.5);
     overflow: scroll;
     position: relative;
+    padding-bottom: 15px;
     .left-msg {
       .time {
         @extend .frm;
@@ -367,21 +500,6 @@ const handleSendMsg = () => {
         padding: 0 5px;
         .Avatar {
           margin-right: 5px;
-        }
-        .msg {
-          padding-top: 2px;
-          padding-left: 10px;
-          .name {
-            font-size: 14px;
-            margin-left: 8px;
-          }
-          .msg {
-            margin-top: 5px;
-            padding: 10px 10px;
-            background-color: #e5e5e5;
-            border-radius: 6px;
-            position: relative;
-          }
         }
       }
     }
