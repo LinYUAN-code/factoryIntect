@@ -1,22 +1,58 @@
 <script setup>
 import Avatar from "../components/Avatar.vue";
 import { Plus } from "@element-plus/icons";
+import { getAllUserExceptName, getMsgList, sendMsg } from "../utils/request";
 import { onMounted, ref } from "vue";
-const myName = "刘志鹏";
-const friends = [
-  {
-    name: "王刚",
-    lastMsgTime: "11:45",
-  },
-  {
-    name: "赵老",
-    lastMsgTime: "15:35",
-  },
-  {
-    name: "刘晶",
-    lastMsgTime: "12:45",
-  },
-];
+const myName = localStorage.getItem("name");
+
+const friends = ref([]);
+const currentChatName = ref("");
+const msgs = ref([]);
+const changeUser = (name) => {
+  currentChatName.value = name;
+};
+onMounted(async () => {
+  let res = await getAllUserExceptName({
+    name: myName,
+  });
+  friends.value = res.data.data || [];
+  currentChatName.value = friends.value[0] || "";
+  res = await getMsgList({
+    name: myName,
+    toName: currentChatName.value,
+  });
+  console.log(res);
+  msgs.value = res.data.data;
+  msgs.value.forEach((msg) => {
+    if (msg.fromName == myName) {
+      msg.isMine = true;
+    }
+    const date = new Date(msg.time);
+    const year = date.getFullYear(); // 获取年
+    const month = date.getMonth() + 1; // 获取月份
+    const day = date.getDate(); // 获取日
+    const hours = date.getHours(); // 获取小时
+    const minutes = date.getMinutes(); // 获取分钟
+    msg.time = `${year}/${month}/${day}  ${hours}:${minutes}`;
+  });
+
+  const ws = new WebSocket(`ws://localhost:8080/webSocket/${myName}`);
+  ws.onmessage = (event) => {
+    console.log("接受服务器消息:", event.data);
+    const msg = JSON.parse(event.data);
+    if (msg.fromName == myName) {
+      msg.isMine = true;
+    }
+    const date = new Date(msg.time);
+    const year = date.getFullYear(); // 获取年
+    const month = date.getMonth() + 1; // 获取月份
+    const day = date.getDate(); // 获取日
+    const hours = date.getHours(); // 获取小时
+    const minutes = date.getMinutes(); // 获取分钟
+    msg.time = `${year}/${month}/${day}  ${hours}:${minutes}`;
+    msgs.value.push(msg);
+  };
+});
 
 const chatMap = ref({
   王刚: {
@@ -40,10 +76,6 @@ const chatMap = ref({
     msgs: [{ msg: "一起去喝下午茶嘛？", time: "12:33", isMine: false }],
   },
 });
-const currentChatName = ref("王刚");
-const changeUser = (name) => {
-  currentChatName.value = name;
-};
 
 const fileList = ref([]);
 const handleRemove = (file, fileList) => {
@@ -101,23 +133,29 @@ const handleGenerateResult = () => {
 };
 
 const msgInput = ref("");
-const handleSendMsg = (isBlob = false) => {
-  const now = new Date(); // 获取当前时间
-  const hours = now.getHours().toString().padStart(2, "0"); // 获取当前小时，并格式化为两位数
-  const minutes = now.getMinutes().toString().padStart(2, "0"); // 获取当前分钟，并格式化为两位数
-  const timeString = `${hours}:${minutes}`; // 将小时和分钟拼接成 "12:23" 的形式
-  const ipv4RegExp =
-    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-  const urlRegExp = /^(https?|ftp):\/\/(-\.)?([^\s/?.#-]+\.?)+(\/[^\s]*)?$/;
+const handleSendMsg = async (isBlob = false) => {
+  // const now = new Date(); // 获取当前时间
+  // const hours = now.getHours().toString().padStart(2, "0"); // 获取当前小时，并格式化为两位数
+  // const minutes = now.getMinutes().toString().padStart(2, "0"); // 获取当前分钟，并格式化为两位数
+  // const timeString = `${hours}:${minutes}`; // 将小时和分钟拼接成 "12:23" 的形式
+  // const ipv4RegExp =
+  //   /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  // const urlRegExp = /^(https?|ftp):\/\/(-\.)?([^\s/?.#-]+\.?)+(\/[^\s]*)?$/;
 
-  chatMap.value[currentChatName.value].msgs.push({
+  // chatMap.value[currentChatName.value].msgs.push({
+  //   msg: msgInput.value,
+  //   time: timeString,
+  //   isMine: true,
+  //   isLink:
+  //     !!msgInput.value.match(ipv4RegExp) || !!msgInput.value.match(urlRegExp),
+  //   isImg: isBlob,
+  // });
+  const res = await sendMsg({
+    name: myName,
+    toName: currentChatName.value,
     msg: msgInput.value,
-    time: timeString,
-    isMine: true,
-    isLink:
-      !!msgInput.value.match(ipv4RegExp) || !!msgInput.value.match(urlRegExp),
-    isImg: isBlob,
   });
+  console.log(res);
   msgInput.value = "";
 };
 </script>
@@ -139,39 +177,36 @@ const handleSendMsg = (isBlob = false) => {
       <div class="friend-container">
         <div
           class="info-container list-info-container"
-          v-for="user in friends"
-          :key="user.name"
-          :class="{ active: currentChatName === user.name }"
-          @click="changeUser(user.name)"
+          v-for="name in friends"
+          :key="name"
+          :class="{ active: currentChatName === name }"
+          @click="changeUser(name)"
         >
-          <Avatar :name="user.name"></Avatar>
-          <div class="name">{{ user.name }}</div>
-          <div class="info-time-containter">
-            {{ user.lastMsgTime }}
-          </div>
+          <Avatar :name="name"></Avatar>
+          <div class="name">{{ name }}</div>
         </div>
       </div>
     </div>
     <div class="chat-container">
       <div class="msg-header-container">
         <div class="info-container">
-          <Avatar :name="chatMap[currentChatName].userName"></Avatar>
-          <div class="name">{{ chatMap[currentChatName].userName }}</div>
+          <Avatar :name="currentChatName"></Avatar>
+          <div class="name">{{ currentChatName }}</div>
         </div>
       </div>
       <div class="msg-show-container">
-        <div v-for="(msg, index) in chatMap[currentChatName].msgs" :key="index">
+        <div v-for="(msg, index) in msgs" :key="index">
           <div class="left-msg" v-if="!msg.isMine">
             <div class="time">
               {{ msg.time }}
             </div>
             <div class="content">
               <div class="Avatar">
-                <Avatar :name="chatMap[currentChatName].userName"></Avatar>
+                <Avatar :name="currentChatName"></Avatar>
               </div>
               <div class="msg">
                 <div class="name">
-                  {{ chatMap[currentChatName].userName }}
+                  {{ currentChatName }}
                 </div>
                 <div class="msg">
                   <div class="image-container" v-if="msg.isImg">

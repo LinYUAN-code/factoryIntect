@@ -1,4 +1,28 @@
 <script setup>
+import { ref } from "vue";
+import { registe } from "../utils/request";
+import { useRouter } from "vue-router";
+const name = ref("");
+const password = ref("");
+const router = useRouter();
+
+const handleRegiste = async () => {
+  console.log(name, password);
+  const res = await registe({
+    name: name.value,
+    password: password.value,
+  });
+  console.log(res.data);
+  if (!res.data.data) {
+    name.value = "";
+    password.value = "";
+    alert("用户已存在");
+    return;
+  }
+  localStorage.setItem("name", name.value);
+  localStorage.setItem("token", res.data.data);
+  router.push("/");
+};
 </script>
  
 <template>
@@ -8,19 +32,21 @@
       <div class="input-container">
         <el-input
           class="input1"
-          v-model="input"
+          v-model="name"
           placeholder="请输入你的用户名"
         />
         <el-input
           class="input2"
-          v-model="input"
+          v-model="password"
           type="password"
           placeholder="请输入你的密码"
           show-password
         />
       </div>
       <div class="btn-container">
-        <el-button class="re-btn" type="primary">注册</el-button>
+        <el-button class="re-btn" type="primary" @click="handleRegiste"
+          >注册</el-button
+        >
       </div>
     </div>
   </div>

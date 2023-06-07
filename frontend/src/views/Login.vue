@@ -1,4 +1,31 @@
 <script setup>
+import { ref } from "vue";
+import { login } from "../utils/request";
+import { useRouter } from "vue-router";
+const name = ref("");
+const password = ref("");
+const router = useRouter();
+
+const handleLogin = async () => {
+  const res = await login({
+    name: name.value,
+    password: password.value,
+  });
+  console.log(res.data);
+  if (!res.data.data) {
+    name.value = "";
+    password.value = "";
+    alert("密码错误");
+    return;
+  }
+  localStorage.setItem("name", name.value);
+  localStorage.setItem("token", res.data.data);
+  router.push("/");
+};
+
+const gotoRegiste = () => {
+  router.push("/registe");
+};
 </script>
  
 <template>
@@ -8,20 +35,22 @@
       <div class="input-container">
         <el-input
           class="input1"
-          v-model="input"
+          v-model="name"
           placeholder="请输入你的用户名"
         />
         <el-input
           class="input2"
-          v-model="input"
+          v-model="password"
           type="password"
           placeholder="请输入你的密码"
           show-password
         />
       </div>
       <div class="btn-container">
-        <el-button type="primary">登录</el-button>
-        <el-button class="re-btn" type="primary">注册</el-button>
+        <el-button type="primary" @click="handleLogin">登录</el-button>
+        <el-button class="re-btn" type="primary" @click="gotoRegiste"
+          >注册</el-button
+        >
       </div>
     </div>
   </div>
